@@ -1,0 +1,11 @@
+Flask==3.0.3
+Flask-SocketIO==5.3.6
+Flask-WTF==1.2.1
+Flask-Login==0.6.3
+Werkzeug==3.0.3
+python-dotenv==1.0.1
+Pillow==10.4.0
+python-magic==0.4.27
+bleach==6.1.0
+simple-websocket==1.0.0
+Flask-Limiter==4.1.1

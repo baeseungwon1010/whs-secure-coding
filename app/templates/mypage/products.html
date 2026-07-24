@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}내 상품{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-2">
+  <h2>📦 내 상품</h2>
+  <a href="{{ url_for('products.create') }}" class="btn btn-primary btn-sm">+ 새 상품 등록</a>
+</div>
+{% if products %}
+<div class="product-grid">
+  {% for p in products %}
+  <div class="product-card" style="display:block;">
+    <a href="{{ url_for('products.detail', product_id=p.id) }}" style="text-decoration:none;color:inherit;">
+      {% if p.image %}
+        <img src="{{ url_for('static', filename=p.image) }}" alt="{{ p.title|e }}" loading="lazy">
+      {% else %}
+        <div class="no-image">📦</div>
+      {% endif %}
+      <div class="info">
+        <div class="title">{{ p.title|e }}</div>
+        <div class="price">{{ '{:,}'.format(p.price) }}원</div>
+        {% if p.status == 'sold' %}<span class="badge-sold">판매완료</span>
+        {% elif p.status == 'pending' %}<span class="badge-pending">검토중</span>{% endif %}
+      </div>
+    </a>
+    <div class="flex gap-1" style="padding:0 0.75rem 0.75rem;">
+      <a href="{{ url_for('products.edit', product_id=p.id) }}" class="btn btn-outline btn-sm">✏️ 수정</a>
+      <form method="post" action="{{ url_for('products.delete', product_id=p.id) }}" class="delete-confirm" style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-danger btn-sm">🗑 삭제</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center text-muted mt-3">등록한 상품이 없습니다.</div>
+{% endif %}
+{% endblock %}

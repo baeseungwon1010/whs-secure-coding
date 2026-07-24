@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block title %}공지사항 관리{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-2">
+  <h2>📢 공지사항</h2>
+  <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline btn-sm">← 대시보드</a>
+</div>
+<div class="card mb-3">
+  <h3 class="mb-2">새 공지 작성</h3>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-group">
+      <label>제목</label>
+      <input class="form-control" type="text" name="title" required maxlength="100">
+    </div>
+    <div class="form-group">
+      <label>내용</label>
+      <textarea class="form-control" name="content" required maxlength="2000" rows="4"></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">공지 등록</button>
+  </form>
+</div>
+{% for n in notices %}
+<div class="card mb-2">
+  <div class="flex items-center justify-between">
+    <strong>{{ n.title|e }}</strong>
+    <span class="text-muted" style="font-size:0.8rem;">{{ n.nickname|e }} · {{ n.created_at }}</span>
+  </div>
+  <div style="font-size:0.88rem;margin-top:0.5rem;">{{ n.content|e }}</div>
+</div>
+{% endfor %}
+{% endblock %}

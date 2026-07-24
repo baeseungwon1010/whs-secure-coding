@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+{% block title %}검색{% if query %}: {{ query|e }}{% endif %} — 하늘마켓{% endblock %}
+{% block extra_head %}
+{% if config.KAKAO_MAP_KEY %}
+<script type="text/javascript"
+  src="https://dapi.kakao.com/v2/maps/sdk.js?appkey={{ config.KAKAO_MAP_KEY }}&libraries=services&autoload=false">
+</script>
+{% endif %}
+{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-2 flex-wrap gap-1">
+  <div class="section-title" style="margin-bottom:0;">
+    {% if query %}검색: "{{ query|e }}" — {{ total }}개{% else %}전체 상품 {{ total }}개{% endif %}
+    {% if user_location and user_location.get('region') %}
+      <span class="text-muted" style="font-size:0.78rem;font-weight:400;"> · 📍{{ user_location.region|e }}</span>
+    {% endif %}
+  </div>
+  <div class="sort-bar">
+    <a href="?q={{ query|urlencode }}&sort=latest" class="sort-btn {% if sort=='latest' %}active{% endif %}">최신순</a>
+    <a href="?q={{ query|urlencode }}&sort=price_asc" class="sort-btn {% if sort=='price_asc' %}active{% endif %}">낮은가격</a>
+    <a href="?q={{ query|urlencode }}&sort=price_desc" class="sort-btn {% if sort=='price_desc' %}active{% endif %}">높은가격</a>
+    <a href="?q={{ query|urlencode }}&sort=views" class="sort-btn {% if sort=='views' %}active{% endif %}">조회수</a>
+  </div>
+</div>
+
+<!-- 지역 필터 (세션 기반, POST로 저장) -->
+<div class="card mb-2" style="padding:0.75rem 1rem;">
+  <div class="flex items-center gap-1 flex-wrap">
+    <span style="font-size:0.88rem;font-weight:600;">📍 내 지역:</span>
+    {% if user_location and user_location.get('region') %}
+      <span class="chip" style="background:var(--sky);color:#fff;">{{ user_location.region|e }}</span>
+      <button onclick="clearMyLocation()" class="btn btn-outline btn-sm">해제</button>
+    {% else %}
+      <span class="text-muted" style="font-size:0.85rem;">전체 지역</span>
+    {% endif %}
+    <button onclick="getCurrentRegion()" class="btn btn-outline btn-sm">📍 현재 위치</button>
+    <button onclick="toggleRegionInput()" class="btn btn-outline btn-sm">✏️ 주소 입력</button>
+  </div>
+  <div id="regionInputWrap" style="display:none;margin-top:0.5rem;">
+    <div class="flex gap-1">
+      <input type="text" id="regionTextInput" class="form-control"
+             placeholder="예: 서울 강남구" maxlength="100" style="max-width:280px;">
+      <button onclick="setRegionText()" class="btn btn-primary btn-sm">적용</button>
+    </div>
+    <div class="text-muted" style="font-size:0.78rem;margin-top:4px;">
+      구/군 단위로 입력하면 해당 지역 상품만 표시됩니다.
+    </div>
+  </div>
+</div>
+
+{% if products %}
+<div class="product-grid">
+  {% for p in products %}
+  <a href="{{ url_for('products.detail', product_id=p.id) }}" class="product-card">
+    {% if p.image %}
+      <img src="{{ url_for('static', filename=p.image) }}" alt="{{ p.title|e }}" loading="lazy">
+    {% else %}
+      <div class="no-image">📦</div>
+    {% endif %}
+    <div class="info">
+      <div class="title">{{ p.title|e }}</div>
+      <div class="price">{{ '{:,}'.format(p.price) }}원</div>
+      {% if p.region %}<div class="region">📍 {{ p.region|e }}</div>{% endif %}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center text-muted mt-3">
+  {% if user_location and user_location.get('region') %}
+    {{ user_location.region|e }} 지역에서 검색 결과가 없습니다.
+  {% else %}
+    검색 결과가 없습니다.
+  {% endif %}
+</div>
+{% endif %}
+
+{% if pages > 1 %}
+<div class="pagination">
+  {% for i in range(1, pages+1) %}
+    <a href="?q={{ query|urlencode }}&sort={{ sort }}&page={{ i }}"
+       class="page-link {% if i==page %}active{% endif %}">{{ i }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const CSRF = '{{ csrf_token() }}';
+{% if config.KAKAO_MAP_KEY %}
+let _geocoder = null;
+kakao.maps.load(function() {
+  _geocoder = new kakao.maps.services.Geocoder();
+});
+{% endif %}
+
+function toggleRegionInput() {
+  const w = document.getElementById('regionInputWrap');
+  w.style.display = w.style.display === 'none' ? 'block' : 'none';
+  if (w.style.display === 'block') document.getElementById('regionTextInput').focus();
+}
+
+async function _postLocation(region, lat, lon) {
+  await fetch('/search/set-location', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+    body: JSON.stringify({region, lat, lon})
+  });
+  location.reload();
+}
+
+function setRegionText() {
+  const val = document.getElementById('regionTextInput').value.trim();
+  if (!val) { alert('지역을 입력해 주세요.'); return; }
+  _postLocation(val, null, null);
+}
+
+async function clearMyLocation() {
+  await fetch('/search/clear-location', {
+    method: 'POST', headers: {'X-CSRFToken': CSRF}
+  });
+  location.reload();
+}
+
+function getCurrentRegion() {
+  if (!navigator.geolocation) {
+    alert('브라우저가 위치 서비스를 지원하지 않습니다.');
+    toggleRegionInput();
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(function(pos) {
+    const lat = pos.coords.latitude, lon = pos.coords.longitude;
+    {% if config.KAKAO_MAP_KEY %}
+    if (_geocoder) {
+      _geocoder.coord2RegionCode(lon, lat, function(result, status) {
+        if (status === kakao.maps.services.Status.OK) {
+          const r = result.find(x => x.region_type === 'H') || result[0];
+          _postLocation(r.address_name, lat, lon);
+        } else {
+          _postLocation(`위도 ${lat.toFixed(4)}, 경도 ${lon.toFixed(4)}`, lat, lon);
+        }
+      });
+    } else {
+      _postLocation(`위도 ${lat.toFixed(4)}, 경도 ${lon.toFixed(4)}`, lat, lon);
+    }
+    {% else %}
+    _postLocation(`위도 ${lat.toFixed(4)}, 경도 ${lon.toFixed(4)}`, lat, lon);
+    {% endif %}
+  }, function(err) {
+    if (err.code === 1) {
+      alert('위치 권한이 거부되었습니다.\n브라우저 주소창 자물쇠 → 위치 허용으로 변경 후 다시 시도해 주세요.');
+    } else {
+      alert('위치를 가져올 수 없습니다. 주소를 직접 입력해 주세요.');
+    }
+    toggleRegionInput();
+  }, {timeout: 8000});
+}
+</script>
+{% endblock %}

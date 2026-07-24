@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% block title %}토스페이먼츠 충전{% endblock %}
+{% block extra_head %}
+<script src="https://js.tosspayments.com/v1/payment"></script>
+<style>
+.amount-btn { min-width: 80px; }
+.amount-btn.selected { background: var(--sky); color: #fff; border-color: var(--sky); }
+</style>
+{% endblock %}
+{% block content %}
+<div class="form-card card" style="max-width:480px;">
+  <h2 class="mb-1">💳 토스페이먼츠 충전</h2>
+  <p class="text-muted mb-3">현재 잔액: <strong style="color:var(--sky-dark);">{{ '{:,}'.format(current_user.balance) }}원</strong></p>
+
+  <div class="form-group">
+    <label style="font-weight:600;">충전 금액</label>
+    <div class="flex gap-1 flex-wrap mb-2">
+      {% for v, label in [(10000,'1만원'),(30000,'3만원'),(50000,'5만원'),(100000,'10만원'),(300000,'30만원')] %}
+      <button type="button" class="btn btn-outline btn-sm amount-btn"
+              onclick="setAmount({{ v }}, this)">{{ label }}</button>
+      {% endfor %}
+    </div>
+    <div class="flex items-center gap-1">
+      <input type="number" id="chargeAmount" class="form-control"
+             placeholder="직접 입력 (최소 1,000원)" min="1000" max="10000000" step="1000"
+             oninput="clearSelected()">
+      <span style="white-space:nowrap;font-size:0.9rem;">원</span>
+    </div>
+  </div>
+
+  <div id="payMethodWrap" class="form-group">
+    <label style="font-weight:600;">결제 수단</label>
+    <div class="flex gap-1 flex-wrap">
+      {% for method, label in [('카드','💳 카드'),('계좌이체','🏦 계좌이체'),('가상계좌','🧾 가상계좌'),('휴대폰','📱 휴대폰')] %}
+      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:6px 12px;border:2px solid var(--border);border-radius:99px;font-size:0.88rem;">
+        <input type="radio" name="payMethod" value="{{ method }}" {% if method == '카드' %}checked{% endif %}
+               style="accent-color:var(--sky);">
+        {{ label }}
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <button class="btn btn-primary" style="width:100%;margin-top:0.5rem;" onclick="doPayment()">
+    결제하기
+  </button>
+  <a href="{{ url_for('payment.charge') }}" class="btn btn-outline" style="width:100%;margin-top:0.5rem;text-align:center;">
+    취소
+  </a>
+
+  <div class="text-muted mt-2" style="font-size:0.78rem;">
+    테스트 모드: 실제 결제가 발생하지 않습니다. 테스트 카드번호 <code>4242 4242 4242 4242</code> 사용 가능.
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+var tossPayments = TossPayments('{{ client_key }}');
+var ORDER_ID = '{{ order_id }}';
+
+function setAmount(v, btn) {
+  document.getElementById('chargeAmount').value = v;
+  document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+
+function clearSelected() {
+  document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('selected'));
+}
+
+async function doPayment() {
+  var amount = parseInt(document.getElementById('chargeAmount').value);
+  if (!amount || amount < 1000) {
+    alert('최소 1,000원 이상 입력해 주세요.');
+    return;
+  }
+  if (amount > 10000000) {
+    alert('최대 충전 금액은 10,000,000원입니다.');
+    return;
+  }
+  var method = document.querySelector('input[name="payMethod"]:checked').value;
+
+  try {
+    await tossPayments.requestPayment(method, {
+      amount: amount,
+      orderId: ORDER_ID,
+      orderName: '하늘마켓 잔액 충전',
+      customerName: '{{ current_user.nickname|e }}',
+      successUrl: window.location.origin + '{{ url_for("payment.toss_success") }}',
+      failUrl: window.location.origin + '{{ url_for("payment.toss_fail") }}',
+    });
+  } catch (err) {
+    if (err.code !== 'USER_CANCEL') {
+      alert('결제 오류: ' + (err.message || JSON.stringify(err)));
+    }
+  }
+}
+</script>
+{% endblock %}

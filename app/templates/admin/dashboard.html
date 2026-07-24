@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block title %}관리자 대시보드{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-2">
+  <h2>🛡 관리자 대시보드</h2>
+  <div class="flex gap-1">
+    <a href="{{ url_for('admin.products') }}" class="btn btn-outline btn-sm">상품 관리</a>
+    <a href="{{ url_for('admin.users') }}" class="btn btn-outline btn-sm">회원 관리</a>
+    <a href="{{ url_for('admin.reports') }}" class="btn btn-outline btn-sm">신고 관리</a>
+    <a href="{{ url_for('admin.notices') }}" class="btn btn-outline btn-sm">공지사항</a>
+    <a href="{{ url_for('admin.logs') }}" class="btn btn-outline btn-sm">로그</a>
+  </div>
+</div>
+<div class="stats-grid">
+  <div class="stat-card"><div class="num">{{ stats.users }}</div><div class="label">전체 회원</div></div>
+  <div class="stat-card"><div class="num">{{ stats.products }}</div><div class="label">전체 상품</div></div>
+  <div class="stat-card"><div class="num">{{ stats.transactions }}</div><div class="label">거래 건수</div></div>
+  <div class="stat-card"><div class="num" style="font-size:1.4rem;">{{ '{:,}'.format(stats.revenue) }}</div><div class="label">총 거래액(원)</div></div>
+  <div class="stat-card" style="{% if stats.reports > 0 %}border:2px solid var(--danger);{% endif %}">
+    <div class="num" style="{% if stats.reports > 0 %}color:var(--danger);{% endif %}">{{ stats.reports }}</div>
+    <div class="label">미처리 신고</div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:2rem;">
+  <div>
+    <div class="section-title">최근 신고</div>
+    {% for r in recent_reports %}
+    <div class="card mb-1" style="padding:0.75rem;">
+      <div class="flex items-center justify-between">
+        <span>{{ r.title|e }}</span>
+        <a href="{{ url_for('admin.reports') }}" class="btn btn-outline btn-sm">처리</a>
+      </div>
+      <div class="text-muted" style="font-size:0.8rem;">{{ r.reporter_name|e }} · {{ r.created_at }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  <div>
+    <div class="section-title">최근 가입 회원</div>
+    {% for u in recent_users %}
+    <div class="card mb-1" style="padding:0.75rem;">
+      <div class="flex items-center justify-between">
+        <span>{{ u.nickname|e }} (@{{ u.username|e }})</span>
+        <span class="text-muted" style="font-size:0.8rem;">{{ u.created_at }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

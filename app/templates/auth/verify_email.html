@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% block title %}이메일 인증 — 하늘마켓{% endblock %}
+{% block content %}
+<div class="form-card card" style="max-width:420px;margin:0 auto;">
+  <h2 class="text-center mb-2">📧 이메일 인증</h2>
+  <p class="text-center text-muted" style="font-size:0.9rem;margin-bottom:1.5rem;">
+    <strong>{{ email }}</strong>으로 전송된<br>7자리 인증 코드를 입력해 주세요.
+  </p>
+
+  <div id="countdown" style="text-align:center;font-size:1.3rem;font-weight:700;color:var(--sky-dark);margin-bottom:1.2rem;">
+    03:00
+  </div>
+
+  <form method="post" id="verifyForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-group">
+      <label>인증 코드</label>
+      <input class="form-control" type="text" name="code" id="codeInput"
+             required maxlength="7" minlength="6"
+             pattern="[0-9]{6,8}"
+             autocomplete="one-time-code"
+             placeholder="0000000"
+             style="text-align:center;font-size:1.5rem;letter-spacing:0.3em;">
+    </div>
+    <button type="submit" class="btn btn-primary w-full" id="submitBtn">인증 확인</button>
+  </form>
+
+  <div class="text-center mt-2" style="font-size:0.85rem;">
+    코드를 받지 못하셨나요?
+    <a href="{{ url_for('auth.register') }}">다시 회원가입</a>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+const EXPIRES_AT = new Date('{{ expires_at }}Z');
+
+function updateCountdown() {
+  const now = new Date();
+  const diff = Math.max(0, Math.floor((EXPIRES_AT - now) / 1000));
+  const m = String(Math.floor(diff / 60)).padStart(2, '0');
+  const s = String(diff % 60).padStart(2, '0');
+  const el = document.getElementById('countdown');
+  el.textContent = `${m}:${s}`;
+  if (diff === 0) {
+    el.style.color = 'var(--danger)';
+    el.textContent = '만료됨';
+    document.getElementById('submitBtn').disabled = true;
+    document.getElementById('codeInput').disabled = true;
+  }
+}
+
+updateCountdown();
+const timer = setInterval(updateCountdown, 1000);
+
+document.getElementById('codeInput').addEventListener('input', function() {
+  this.value = this.value.replace(/[^0-9]/g, '').slice(0, 7);
+});
+</script>
+{% endblock %}

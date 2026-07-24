@@ -1,0 +1,184 @@
+{% extends 'base.html' %}
+{% block title %}채팅 — {{ product.title|e }}{% endblock %}
+{% block extra_head %}
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+{% endblock %}
+{% block content %}
+<div id="lightbox" onclick="closeLightbox()"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:9000;
+            align-items:center;justify-content:center;cursor:zoom-out;">
+  <img id="lightboxImg" alt="이미지 확대"
+       style="max-width:88vw;max-height:88vh;border-radius:14px;object-fit:contain;
+              box-shadow:0 8px 40px rgba(0,0,0,0.5);">
+</div>
+<div style="display:flex;gap:1rem;align-items:flex-start;">
+  <div style="flex:1;">
+    <div class="card mb-2" style="padding:0.75rem 1rem;">
+      <div class="flex items-center justify-between">
+        <div>
+          <strong>{{ partner.nickname|e }}</strong>
+          <span class="text-muted" style="font-size:0.82rem;"> · {{ product.title|e }}</span>
+        </div>
+        <div class="flex gap-1">
+          {% if not is_blocked %}
+          <form method="post" action="{{ url_for('chat.block_user', user_id=partner.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline btn-sm">차단</button>
+          </form>
+          {% else %}
+          <form method="post" action="{{ url_for('chat.unblock_user', user_id=partner.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline btn-sm">차단해제</button>
+          </form>
+          {% endif %}
+          <a href="{{ url_for('reports.create', type='user', id=partner.id) }}" class="btn btn-outline btn-sm">🚨 신고</a>
+          <a href="{{ url_for('chat.my_rooms') }}" class="btn btn-outline btn-sm">← 목록</a>
+        </div>
+      </div>
+    </div>
+
+    {% if is_blocked %}
+    <div class="alert alert-warning">상대방과의 채팅이 차단된 상태입니다.</div>
+    {% endif %}
+
+    <div class="chat-container card" style="padding:0;">
+      <div class="chat-messages" id="chatMessages">
+        {% for m in messages %}
+        <div style="display:flex;flex-direction:column;align-items:{% if m.sender_id == current_user.id %}flex-end{% else %}flex-start{% endif %};">
+          {% if m.sender_id != current_user.id %}
+          <div class="msg-name">{{ m.nickname|e }}</div>
+          {% endif %}
+          <div class="msg-bubble {% if m.sender_id == current_user.id %}mine{% else %}theirs{% endif %}">
+            {% if m.message_type == 'image' %}
+            <img src="{{ m.content|e }}" alt="이미지" style="max-width:200px;max-height:200px;border-radius:8px;display:block;cursor:zoom-in;"
+                 onclick="openLightbox(this.src)">
+            {% else %}
+            {{ m.content|e }}
+            {% endif %}
+          </div>
+          <div class="msg-time">{{ m.created_at|hhmm }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% if not is_blocked %}
+      <div class="chat-input-area" style="display:flex;gap:0.5rem;align-items:center;">
+        <input type="file" id="imgInput" accept="image/jpeg,image/png,image/jpg"
+               style="display:none" onchange="uploadImage(this)">
+        <button type="button" class="btn btn-outline btn-sm" title="이미지 전송"
+                onclick="document.getElementById('imgInput').click()" style="padding:0.4rem 0.7rem;font-size:1.1rem;">📷</button>
+        <input type="text" class="form-control" id="msgInput" placeholder="메시지 입력..." maxlength="1000" style="flex:1;">
+        <button class="btn btn-primary" onclick="sendMsg()">전송</button>
+      </div>
+      {% endif %}
+    </div>
+
+    <div id="typingIndicator" class="text-muted mt-1" style="font-size:0.8rem;min-height:1.2em;"></div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+function openLightbox(src) {
+  const lb = document.getElementById('lightbox');
+  document.getElementById('lightboxImg').src = src;
+  lb.style.display = 'flex';
+  document.addEventListener('keydown', _lbKey);
+}
+function closeLightbox() {
+  document.getElementById('lightbox').style.display = 'none';
+  document.removeEventListener('keydown', _lbKey);
+}
+function _lbKey(e) { if (e.key === 'Escape') closeLightbox(); }
+
+const ROOM_ID = {{ chat_room.id }};
+const MY_ID = {{ current_user.id }};
+const CSRF_TOKEN = '{{ csrf_token() }}';
+const UPLOAD_URL = '{{ url_for("chat.upload_image", room_id=chat_room.id) }}';
+const socket = io();
+socket.emit('join', {room_id: ROOM_ID});
+
+const msgBox = document.getElementById('chatMessages');
+const input = document.getElementById('msgInput');
+
+function scrollBottom() { msgBox.scrollTop = msgBox.scrollHeight; }
+scrollBottom();
+
+function appendMessage(data) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = `display:flex;flex-direction:column;align-items:${data.sender_id == MY_ID ? 'flex-end' : 'flex-start'}`;
+  if (data.sender_id != MY_ID) {
+    const name = document.createElement('div');
+    name.className = 'msg-name';
+    name.textContent = data.sender;
+    wrap.appendChild(name);
+  }
+  const bubble = document.createElement('div');
+  bubble.className = `msg-bubble ${data.sender_id == MY_ID ? 'mine' : 'theirs'}`;
+  if (data.message_type === 'image') {
+    const img = document.createElement('img');
+    img.src = data.content;
+    img.alt = '이미지';
+    img.style.cssText = 'max-width:200px;max-height:200px;border-radius:8px;display:block;cursor:zoom-in;';
+    img.addEventListener('click', () => openLightbox(img.src));
+    bubble.appendChild(img);
+  } else {
+    bubble.textContent = data.content;
+    if (data.censored) bubble.style.fontStyle = 'italic';
+  }
+  wrap.appendChild(bubble);
+  const time = document.createElement('div');
+  time.className = 'msg-time';
+  time.textContent = data.time;
+  wrap.appendChild(time);
+  msgBox.appendChild(wrap);
+  scrollBottom();
+}
+
+socket.on('new_message', appendMessage);
+socket.on('error', data => alert(data.msg));
+
+let typingTimer;
+socket.on('user_typing', data => {
+  document.getElementById('typingIndicator').textContent = `${data.nickname}님이 입력 중...`;
+  clearTimeout(typingTimer);
+  typingTimer = setTimeout(() => { document.getElementById('typingIndicator').textContent = ''; }, 2000);
+});
+
+function sendMsg() {
+  const content = input.value.trim();
+  if (!content) return;
+  socket.emit('send_message', {room_id: ROOM_ID, content, message_type: 'text'});
+  input.value = '';
+}
+
+async function uploadImage(inputEl) {
+  const file = inputEl.files[0];
+  if (!file) return;
+  const form = new FormData();
+  form.append('file', file);
+  try {
+    const res = await fetch(UPLOAD_URL, {
+      method: 'POST',
+      headers: {'X-CSRFToken': CSRF_TOKEN},
+      body: form,
+    });
+    const data = await res.json();
+    if (data.ok) {
+      socket.emit('send_message', {room_id: ROOM_ID, content: data.url, message_type: 'image'});
+    } else {
+      alert(data.error || '이미지 업로드에 실패했습니다.');
+    }
+  } catch (e) {
+    alert('이미지 업로드 중 오류가 발생했습니다.');
+  }
+  inputEl.value = '';
+}
+
+if (input) {
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
+    socket.emit('typing', {room_id: ROOM_ID});
+  });
+}
+</script>
+{% endblock %}

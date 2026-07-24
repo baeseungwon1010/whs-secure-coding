@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block title %}상품 관리{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-2">
+  <h2>📦 상품 관리</h2>
+  <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline btn-sm">← 대시보드</a>
+</div>
+
+{% if pending %}
+<div class="section-title" style="color:var(--warning);">⚠️ 검토 대기 상품 {{ pending|length }}개</div>
+<table class="mb-2">
+  <thead><tr><th>ID</th><th>상품명</th><th>판매자</th><th>등록일</th><th>작업</th></tr></thead>
+  <tbody>
+    {% for p in pending %}
+    <tr>
+      <td>{{ p.id }}</td>
+      <td>{{ p.title|e }}</td>
+      <td>{{ p.seller_name|e }}</td>
+      <td>{{ p.created_at }}</td>
+      <td>
+        <form method="post" action="{{ url_for('admin.approve_product', product_id=p.id) }}" style="display:inline;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-success btn-sm">승인</button>
+        </form>
+        <form method="post" action="{{ url_for('admin.delete_product', product_id=p.id) }}" style="display:inline;" onsubmit="return promptReason(this)">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="reason" id="reason-{{ p.id }}">
+          <button class="btn btn-danger btn-sm">삭제</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<div class="section-title">전체 상품 ({{ total }}개)</div>
+<table>
+  <thead><tr><th>ID</th><th>상품명</th><th>판매자</th><th>상태</th><th>가격</th><th>등록일</th><th>작업</th></tr></thead>
+  <tbody>
+    {% for p in products %}
+    <tr>
+      <td>{{ p.id }}</td>
+      <td><a href="{{ url_for('products.detail', product_id=p.id) }}">{{ p.title|e }}</a></td>
+      <td>{{ p.seller_name|e }}</td>
+      <td>{{ p.status }}</td>
+      <td>{{ '{:,}'.format(p.price) }}원</td>
+      <td>{{ p.created_at }}</td>
+      <td>
+        <form method="post" action="{{ url_for('admin.delete_product', product_id=p.id) }}" style="display:inline;" onsubmit="return promptReason(this)">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="reason" class="reason-field">
+          <button class="btn btn-danger btn-sm">삭제</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% if pages > 1 %}
+<div class="pagination mt-2">
+  {% for i in range(1, pages+1) %}
+    <a href="?page={{ i }}" class="page-link {% if i==page %}active{% endif %}">{{ i }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+{% block extra_scripts %}
+<script>
+function promptReason(form) {
+  const reason = prompt('삭제 사유를 입력하세요:');
+  if (!reason || !reason.trim()) return false;
+  form.querySelector('.reason-field, [id^=reason-]').value = reason.trim();
+  return true;
+}
+</script>
+{% endblock %}

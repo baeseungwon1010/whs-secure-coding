@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}프로필 수정{% endblock %}
+{% block content %}
+<div class="form-card card">
+  <h2 class="mb-2">👤 프로필 수정</h2>
+  <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="text-center mb-2">
+      {% if user.profile_image %}
+        <img src="{{ url_for('static', filename=user.profile_image) }}" class="avatar avatar-lg">
+      {% else %}
+        <div style="width:80px;height:80px;border-radius:50%;background:var(--sky-ultra);display:inline-flex;align-items:center;justify-content:center;font-size:2rem;">👤</div>
+      {% endif %}
+    </div>
+    <div class="form-group">
+      <label>프로필 이미지 변경</label>
+      <input class="form-control" type="file" name="profile_image" accept=".jpg,.jpeg,.png">
+    </div>
+    <div class="form-group">
+      <label>닉네임</label>
+      <input class="form-control" type="text" name="nickname" value="{{ user.nickname|e }}" required maxlength="30">
+    </div>
+    <div class="form-group">
+      <label>소개글 (최대 200자)</label>
+      <textarea class="form-control" name="bio" maxlength="200" rows="3">{{ user.bio|e }}</textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">저장</button>
+    <a href="{{ url_for('mypage.index') }}" class="btn btn-outline">취소</a>
+  </form>
+</div>
+{% endblock %}

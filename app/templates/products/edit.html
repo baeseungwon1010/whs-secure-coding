@@ -1,0 +1,209 @@
+{% extends 'base.html' %}
+{% block title %}상품 수정{% endblock %}
+{% block extra_head %}
+{% if config.KAKAO_MAP_KEY %}
+<script type="text/javascript"
+  src="https://dapi.kakao.com/v2/maps/sdk.js?appkey={{ config.KAKAO_MAP_KEY }}&libraries=services&autoload=false">
+</script>
+{% else %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+{% endif %}
+{% endblock %}
+{% block content %}
+<div class="card" style="max-width:680px;margin:0 auto;">
+  <h2 class="mb-2">✏️ 상품 수정</h2>
+  <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="latitude" id="latitude" value="{{ product.latitude or '' }}">
+    <input type="hidden" name="longitude" id="longitude" value="{{ product.longitude or '' }}">
+
+    <div class="form-group">
+      <label>상품명 *</label>
+      <input class="form-control" type="text" name="title" required maxlength="100"
+             value="{{ product.title|e }}">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+      <div class="form-group">
+        <label>카테고리 *</label>
+        <select class="form-control" name="category" required>
+          {% for cat in categories %}
+            <option value="{{ cat }}" {% if product.category == cat %}selected{% endif %}>{{ cat }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>가격 (원) *</label>
+        <input class="form-control" type="number" name="price" required min="0" max="999999999"
+               value="{{ product.price }}">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>수량{% if product.status == 'sold' %} <span style="color:var(--warning);font-size:0.85rem;">— 1 이상으로 올리면 재판매됩니다</span>{% endif %}</label>
+      <input class="form-control" type="number" name="stock" min="0" max="9999"
+             value="{{ product.stock }}">
+    </div>
+    <div class="form-group">
+      <label>지역</label>
+      <div class="flex gap-1 mb-1">
+        <input class="form-control" type="text" name="region" id="regionInput"
+               maxlength="100" value="{{ product.region|e }}">
+        <button type="button" class="btn btn-outline btn-sm" onclick="getCurrentLocation()">📍 현재 위치</button>
+      </div>
+      <div style="position:relative;width:100%;height:260px;border-radius:12px;border:2px solid var(--sky-ultra);">
+        <div id="mapContainer" style="width:100%;height:100%;border-radius:10px;"></div>
+        <div id="mapMsg" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+             background:var(--sky-light);border-radius:10px;pointer-events:none;">
+          {% if config.KAKAO_MAP_KEY %}
+            <span class="text-muted" style="font-size:0.85rem;">지도 로딩 중...</span>
+          {% else %}
+            <span class="text-muted" style="font-size:0.85rem;">📍 .env에 KAKAO_MAP_KEY를 설정하면 지도가 표시됩니다.</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>상품 설명 *</label>
+      <textarea class="form-control" name="description" required maxlength="2000"
+                rows="6">{{ product.description|e }}</textarea>
+    </div>
+    <div class="form-group">
+      <label>키워드</label>
+      <input class="form-control" type="text" name="keywords" maxlength="200"
+             value="{{ product.keywords|e }}">
+    </div>
+    <div class="form-group">
+      <label>이미지 변경 (비우면 기존 유지)</label>
+      {% if product.image %}
+        <div class="mb-1">
+          <img src="{{ url_for('static', filename=product.image) }}"
+               style="height:80px;border-radius:8px;object-fit:contain;">
+        </div>
+      {% endif %}
+      <input class="form-control" type="file" name="image" accept=".jpg,.jpeg,.png"
+             onchange="previewImage(this)">
+      <div id="imagePreview" class="mt-1 hidden">
+        <img id="previewImg" style="max-height:200px;border-radius:8px;">
+        <div id="ratioWarning" class="alert alert-warning mt-1 hidden">
+          ⚠️ 비율이 1:10 초과 — 업로드 시 거부됩니다.
+        </div>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary">저장</button>
+    <a href="{{ url_for('products.detail', product_id=product.id) }}" class="btn btn-outline">취소</a>
+  </form>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+const _initLat = {{ product.latitude or 37.5665 }};
+const _initLon = {{ product.longitude or 126.9780 }};
+
+async function _nominatim(lat, lon) {
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
+      {headers: {'Accept-Language': 'ko'}}
+    );
+    const d = await r.json();
+    const a = d.address || {};
+    const parts = [
+      a.state,
+      a.city || a.town || a.county,
+      a.suburb || a.borough || a.quarter
+    ].filter(Boolean);
+    return parts.join(' ') || '현재 위치';
+  } catch(e) { return ''; }
+}
+
+{% if config.KAKAO_MAP_KEY %}
+let map, marker, geocoder;
+
+kakao.maps.load(function() {
+  const container = document.getElementById('mapContainer');
+  const center = new kakao.maps.LatLng(_initLat, _initLon);
+  map = new kakao.maps.Map(container, { center: center, level: 5 });
+  geocoder = new kakao.maps.services.Geocoder();
+  marker = new kakao.maps.Marker({ position: center, map: map });
+  const msg = document.getElementById('mapMsg');
+  if (msg) msg.style.display = 'none';
+  kakao.maps.event.addListener(map, 'click', function(e) {
+    setMapLocation(e.latLng.getLat(), e.latLng.getLng());
+  });
+});
+
+function setMapLocation(lat, lon) {
+  const pos = new kakao.maps.LatLng(lat, lon);
+  marker.setPosition(pos);
+  map.panTo(pos);
+  document.getElementById('latitude').value = lat;
+  document.getElementById('longitude').value = lon;
+  geocoder.coord2Address(lon, lat, function(result, status) {
+    if (status === kakao.maps.services.Status.OK) {
+      const addr = result[0].road_address
+        ? result[0].road_address.address_name
+        : result[0].address.address_name;
+      document.getElementById('regionInput').value = addr;
+    }
+  });
+}
+{% else %}
+let _lfMap, _lfMarker;
+(function() {
+  _lfMap = L.map('mapContainer').setView([_initLat, _initLon], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors', maxZoom: 19
+  }).addTo(_lfMap);
+  _lfMarker = L.marker([_initLat, _initLon]).addTo(_lfMap);
+  const msg = document.getElementById('mapMsg');
+  if (msg) msg.style.display = 'none';
+  _lfMap.on('click', function(e) { setMapLocation(e.latlng.lat, e.latlng.lng); });
+})();
+
+async function setMapLocation(lat, lon) {
+  _lfMarker.setLatLng([lat, lon]);
+  _lfMap.panTo([lat, lon]);
+  document.getElementById('latitude').value = lat;
+  document.getElementById('longitude').value = lon;
+  const region = await _nominatim(lat, lon);
+  if (region) document.getElementById('regionInput').value = region;
+}
+{% endif %}
+
+function getCurrentLocation() {
+  if (!navigator.geolocation) {
+    alert('브라우저가 위치 서비스를 지원하지 않습니다.');
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(function(pos) {
+    const lat = pos.coords.latitude, lon = pos.coords.longitude;
+    document.getElementById('latitude').value = lat;
+    document.getElementById('longitude').value = lon;
+    if (typeof setMapLocation === 'function') setMapLocation(lat, lon);
+  }, function(err) {
+    if (err.code === 1) {
+      alert('위치 권한이 거부되었습니다.\n주소창 왼쪽 자물쇠 아이콘 → 위치 허용으로 변경해 주세요.');
+    } else {
+      alert('위치 정보를 가져올 수 없습니다. 직접 입력해 주세요.');
+    }
+  }, { timeout: 8000 });
+}
+
+function previewImage(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      document.getElementById('previewImg').src = e.target.result;
+      document.getElementById('imagePreview').classList.remove('hidden');
+      const ratio = Math.max(img.width, img.height) / Math.min(img.width, img.height);
+      document.getElementById('ratioWarning').classList.toggle('hidden', ratio <= 10);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+</script>
+{% endblock %}

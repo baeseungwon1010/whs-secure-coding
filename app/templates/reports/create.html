@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}신고하기{% endblock %}
+{% block content %}
+<div class="card" style="max-width:560px;margin:0 auto;">
+  <h2 class="mb-2">🚨 신고하기</h2>
+  <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="target_type" value="{{ target_type }}">
+    <input type="hidden" name="target_id" value="{{ target_id }}">
+    <div class="form-group">
+      <label>신고 대상</label>
+      <input class="form-control" type="text" value="{{ target_display }}" disabled>
+    </div>
+    <div class="form-group">
+      <label>신고 제목 *</label>
+      <input class="form-control" type="text" name="title" required maxlength="100">
+    </div>
+    <div class="form-group">
+      <label>카테고리 *</label>
+      <select class="form-control" name="category" required>
+        <option value="">선택하세요</option>
+        {% for cat in categories %}
+          <option value="{{ cat }}">{{ cat }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>상세 내용 * (최대 1000자)</label>
+      <textarea class="form-control" name="detail" required maxlength="1000" rows="5"></textarea>
+    </div>
+    <div class="form-group">
+      <label>증거 이미지 (선택)</label>
+      <input class="form-control" type="file" name="image" accept=".jpg,.jpeg,.png">
+    </div>
+    <button type="submit" class="btn btn-danger">신고 접수</button>
+    <a href="javascript:history.back()" class="btn btn-outline">취소</a>
+  </form>
+</div>
+{% endblock %}

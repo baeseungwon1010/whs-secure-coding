@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}채팅 검열 — 룸 #{{ room.id if room else '' }}{% endblock %}
+{% block extra_head %}
+<style>
+.chat-msg { padding:6px 12px; border-radius:12px; margin-bottom:6px; max-width:70%; }
+.chat-msg.left  { background:var(--sky-light); align-self:flex-start; }
+.chat-msg.right { background:var(--sky); align-self:flex-end; }
+.chat-wrap { display:flex; flex-direction:column; gap:4px; max-height:600px; overflow-y:auto;
+             padding:1rem; background:#f8fafc; border-radius:12px; }
+.profanity-msg { font-style:italic; opacity:0.8; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-2">
+  <h2>💬 채팅 전체 내역 — 룸 #{{ room.id if room else '?' }}</h2>
+  <a href="{{ url_for('admin.reports') }}" class="btn btn-outline btn-sm">← 신고 목록</a>
+</div>
+
+{% if room %}
+<div class="card mb-2" style="padding:0.75rem 1rem;font-size:0.88rem;">
+  <strong>{{ room.buyer_name|e }}</strong>(구매자) ↔ <strong>{{ room.seller_name|e }}</strong>(판매자)
+  · 상품: {{ room.product_title|e }}
+</div>
+{% endif %}
+
+<p class="text-muted mb-2" style="font-size:0.85rem;">
+  전체 메시지 표시 · ⚠️ 표시는 비속어 처리된 메시지
+</p>
+
+{% if messages %}
+<div class="chat-wrap">
+  {% set first_id = messages[0].sender_id if messages else 0 %}
+  {% for m in messages %}
+  <div style="display:flex;flex-direction:column;align-items:{% if m.sender_id == first_id %}flex-start{% else %}flex-end{% endif %};">
+    <div class="text-muted" style="font-size:0.72rem;margin-bottom:2px;">{{ m.nickname|e }}</div>
+    <div class="chat-msg {% if m.sender_id == first_id %}left{% else %}right{% endif %} {% if m.has_profanity %}profanity-msg{% endif %}">
+      {{ m.content|e }}
+      {% if m.has_profanity %}<span style="font-size:0.7rem;margin-left:4px;">⚠️비속어</span>{% endif %}
+    </div>
+    <div class="text-muted" style="font-size:0.7rem;">{{ m.created_at }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center text-muted mt-3">메시지가 없습니다.</div>
+{% endif %}
+{% endblock %}

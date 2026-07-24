@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% block title %}계좌 출금{% endblock %}
+{% block content %}
+<div class="form-card card" style="max-width:480px;">
+  <h2 class="mb-1">🏦 계좌 출금</h2>
+  <p class="text-muted mb-3">
+    출금 가능 잔액: <strong style="font-size:1.1rem;color:var(--sky-dark);">{{ '{:,}'.format(user.balance) }}원</strong>
+  </p>
+
+  {% if user.balance < 1000 %}
+  <div class="alert alert-warning mb-2">
+    잔액이 부족합니다. 최소 1,000원 이상 있어야 출금할 수 있습니다.
+    <a href="{{ url_for('payment.toss_charge') }}" class="btn btn-primary btn-sm" style="margin-left:8px;">충전하기</a>
+  </div>
+  {% else %}
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="form-group">
+      <label>은행 <span style="color:var(--danger);">*</span></label>
+      <select class="form-control" name="bank_code" required>
+        <option value="">은행 선택</option>
+        {% for code, name in BANKS %}
+        <option value="{{ code }}">{{ name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>계좌번호 <span style="color:var(--danger);">*</span></label>
+      <input class="form-control" type="text" name="account_number"
+             placeholder="'-' 없이 숫자만 입력" maxlength="16"
+             pattern="[0-9]{10,16}" inputmode="numeric" required>
+      <div class="text-muted" style="font-size:0.78rem;margin-top:3px;">10~16자리 숫자</div>
+    </div>
+
+    <div class="form-group">
+      <label>예금주명 <span style="color:var(--danger);">*</span></label>
+      <input class="form-control" type="text" name="holder_name"
+             placeholder="예금주 실명" maxlength="20" required>
+    </div>
+
+    <div class="form-group">
+      <label>출금 금액 (원) <span style="color:var(--danger);">*</span></label>
+      <div class="flex gap-1 flex-wrap mb-1">
+        {% for v, label in [(10000,'1만원'),(30000,'3만원'),(50000,'5만원'),(100000,'10만원')] %}
+        {% if v <= user.balance %}
+        <button type="button" class="btn btn-outline btn-sm"
+                onclick="document.getElementById('withdrawAmount').value={{ v }}">{{ label }}</button>
+        {% endif %}
+        {% endfor %}
+        <button type="button" class="btn btn-outline btn-sm"
+                onclick="document.getElementById('withdrawAmount').value={{ user.balance }}">전액</button>
+      </div>
+      <input class="form-control" type="number" id="withdrawAmount" name="amount"
+             placeholder="최소 1,000원" min="1000" max="{{ user.balance }}"
+             step="1000" required oninput="checkAmount()">
+      <div id="withdrawInfo" class="text-muted" style="font-size:0.82rem;margin-top:4px;"></div>
+    </div>
+
+    <button type="submit" class="btn btn-primary" style="width:100%;" id="withdrawBtn">출금 신청</button>
+    <a href="{{ url_for('payment.charge') }}" class="btn btn-outline" style="width:100%;margin-top:0.5rem;text-align:center;">취소</a>
+  </form>
+
+  <div class="card mt-2" style="background:var(--sky-ultra);border:none;font-size:0.82rem;color:var(--text-muted);line-height:1.7;">
+    <strong>출금 안내</strong><br>
+    · 본인 명의 계좌로만 출금 가능합니다.<br>
+    · 처리까지 1~2 영업일이 소요될 수 있습니다.<br>
+    · 출금 신청 즉시 잔액에서 차감됩니다.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+var MAX_BALANCE = {{ user.balance }};
+
+function checkAmount() {
+  var v = parseInt(document.getElementById('withdrawAmount').value) || 0;
+  var info = document.getElementById('withdrawInfo');
+  var btn = document.getElementById('withdrawBtn');
+  if (!btn) return;
+  if (v < 1000) {
+    info.textContent = '최소 출금 금액은 1,000원입니다.';
+    info.style.color = 'var(--danger)';
+    btn.disabled = true;
+  } else if (v > MAX_BALANCE) {
+    info.textContent = `잔액이 부족합니다. (최대 ${MAX_BALANCE.toLocaleString()}원)`;
+    info.style.color = 'var(--danger)';
+    btn.disabled = true;
+  } else {
+    info.textContent = `출금 후 잔액: ${(MAX_BALANCE - v).toLocaleString()}원`;
+    info.style.color = 'var(--success)';
+    btn.disabled = false;
+  }
+}
+</script>
+{% endblock %}

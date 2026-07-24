@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}구매 내역{% endblock %}
+{% block content %}
+<h2 class="mb-2">💳 구매 내역</h2>
+{% if transactions %}
+<table>
+  <thead><tr><th>상품</th><th>판매자</th><th>금액</th><th>날짜</th></tr></thead>
+  <tbody>
+    {% for t in transactions %}
+    <tr>
+      <td>{{ t.title|e }}</td>
+      <td>{{ t.seller_name|e }}</td>
+      <td>{{ '{:,}'.format(t.amount) }}원</td>
+      <td>{{ t.created_at }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="text-center text-muted mt-3">구매 내역이 없습니다.</div>
+{% endif %}
+{% endblock %}

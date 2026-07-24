@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}하늘마켓{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<nav class="navbar">
+  <a class="navbar-brand" href="{{ url_for('main.index') }}">☁️ 하늘마켓</a>
+  <div class="navbar-search-wrap" style="flex:1;max-width:500px;position:relative;">
+    <form id="searchForm" class="navbar-search" action="{{ url_for('search.search') }}" method="get">
+      <input type="text" name="q" id="searchInput" placeholder="상품 검색..."
+             value="{{ request.args.get('q','') }}" maxlength="100"
+             autocomplete="off"
+             onfocus="showSearchDrop()" onblur="hideSearchDrop()">
+      <button type="submit">검색</button>
+    </form>
+    <!-- Recent search dropdown -->
+    <div id="searchDrop" class="search-drop hidden">
+      <div class="search-drop-header">
+        <span>최근 검색어</span>
+        <button type="button" onclick="clearSearchHistory()" class="drop-clear">전체 삭제</button>
+      </div>
+      <div id="searchDropList"></div>
+    </div>
+  </div>
+  <div class="navbar-links">
+    {% if current_user.is_authenticated %}
+      <a href="{{ url_for('products.create') }}">+ 상품등록</a>
+      <a href="{{ url_for('notifications.index') }}">
+        🔔{% set unread = unread_count %}{% if unread > 0 %}<span class="notif-badge">{{ unread }}</span>{% endif %}
+      </a>
+      <a href="{{ url_for('chat.my_rooms') }}">💬 채팅</a>
+      <a href="{{ url_for('mypage.index') }}">👤 {{ current_user.nickname }}</a>
+      {% if current_user.is_admin %}
+        <a href="{{ url_for('admin.dashboard') }}" style="color:var(--sky-dark);font-weight:700;">관리자</a>
+      {% endif %}
+      <a href="{{ url_for('auth.logout') }}">로그아웃</a>
+    {% else %}
+      <a href="{{ url_for('auth.login') }}">로그인</a>
+      <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-sm">회원가입</a>
+    {% endif %}
+  </div>
+</nav>
+
+<!-- Flash messages -->
+<div class="alert-container" id="alertContainer">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+      <div class="alert alert-{{ cat }}" onclick="this.remove()">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+</div>
+
+<div class="container">
+  {% block content %}{% endblock %}
+</div>
+
+<script>
+// ── Auth guard for non-login users ──
+const IS_LOGGED_IN = {{ 'true' if current_user.is_authenticated else 'false' }};
+const LOGIN_URL = '{{ url_for("auth.login") }}';
+
+function requireLogin(msg) {
+  if (!IS_LOGGED_IN) {
+    alert(msg || '로그인이 필요합니다.');
+    location.href = LOGIN_URL;
+    return false;
+  }
+  return true;
+}
+
+// Attach to elements with data-login-required
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('[data-login-required]').forEach(el => {
+    el.addEventListener('click', e => {
+      if (!IS_LOGGED_IN) {
+        e.preventDefault();
+        e.stopPropagation();
+        alert(el.dataset.loginMsg || '로그인이 필요합니다. 로그인 페이지로 이동합니다.');
+        location.href = LOGIN_URL;
+      }
+    });
+  });
+});
+
+// ── Auto-dismiss alerts ──
+setTimeout(() => {
+  document.querySelectorAll('.alert').forEach(el => el.remove());
+}, 5000);
+
+// ── Delete confirmation with 3s delay ──
+document.querySelectorAll('.delete-confirm').forEach(form => {
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    if (!confirm('정말 삭제하시겠습니까?')) return;
+    const btn = form.querySelector('button[type=submit]');
+    btn.disabled = true;
+    btn.textContent = '3초 후 삭제...';
+    let sec = 3;
+    const t = setInterval(() => {
+      sec--;
+      btn.textContent = sec > 0 ? `${sec}초 후 삭제...` : '삭제 중...';
+      if (sec <= 0) { clearInterval(t); form.submit(); }
+    }, 1000);
+  });
+});
+
+// ── Search dropdown ──
+let dropHideTimer;
+
+async function showSearchDrop() {
+  clearTimeout(dropHideTimer);
+  const drop = document.getElementById('searchDrop');
+  const list = document.getElementById('searchDropList');
+  drop.classList.remove('hidden');
+  try {
+    const res = await fetch('{{ url_for("search.get_recent") }}');
+    const data = await res.json();
+    if (data.searches && data.searches.length > 0) {
+      list.textContent = '';
+      data.searches.forEach(q => {
+        const item = document.createElement('div');
+        item.className = 'drop-item';
+        const span = document.createElement('span');
+        span.textContent = '🕐 ' + q;
+        span.addEventListener('mousedown', () => fillSearch(q));
+        const btn = document.createElement('button');
+        btn.className = 'drop-del-btn';
+        btn.title = '삭제';
+        btn.textContent = '✕';
+        btn.addEventListener('mousedown', (e) => deleteOneSearch(e, q, btn));
+        item.appendChild(span);
+        item.appendChild(btn);
+        list.appendChild(item);
+      });
+    } else {
+      list.textContent = '';
+      const empty = document.createElement('div');
+      empty.className = 'drop-empty';
+      empty.textContent = '최근 검색어가 없습니다.';
+      list.appendChild(empty);
+    }
+  } catch(e) {
+    list.textContent = '';
+  }
+}
+
+function hideSearchDrop() {
+  dropHideTimer = setTimeout(() => {
+    document.getElementById('searchDrop').classList.add('hidden');
+  }, 150);
+}
+
+function fillSearch(q) {
+  document.getElementById('searchInput').value = q;
+  document.getElementById('searchDrop').classList.add('hidden');
+  document.getElementById('searchInput').focus();
+}
+
+async function clearSearchHistory() {
+  await fetch('{{ url_for("search.clear_history") }}', {
+    method: 'POST',
+    headers: {'X-CSRFToken': '{{ csrf_token() }}'}
+  });
+  document.getElementById('searchDropList').innerHTML = '<div class="drop-empty">최근 검색어가 없습니다.</div>';
+}
+
+async function deleteOneSearch(e, q, btn) {
+  e.preventDefault();
+  e.stopPropagation();
+  await fetch('{{ url_for("search.delete_one") }}', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': '{{ csrf_token() }}'
+    },
+    body: JSON.stringify({q})
+  });
+  const item = btn.closest('.drop-item');
+  item.remove();
+  const list = document.getElementById('searchDropList');
+  if (!list.querySelector('.drop-item')) {
+    list.innerHTML = '<div class="drop-empty">최근 검색어가 없습니다.</div>';
+  }
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

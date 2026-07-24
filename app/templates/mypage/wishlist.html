@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}찜 목록{% endblock %}
+{% block content %}
+<h2 class="mb-2">❤️ 찜 목록</h2>
+{% if products %}
+<div class="product-grid">
+  {% for p in products %}
+  <a href="{{ url_for('products.detail', product_id=p.id) }}" class="product-card">
+    {% if p.image %}
+      <img src="{{ url_for('static', filename=p.image) }}" alt="{{ p.title|e }}" loading="lazy">
+    {% else %}
+      <div class="no-image">📦</div>
+    {% endif %}
+    <div class="info">
+      <div class="title">{{ p.title|e }}</div>
+      <div class="price">{{ '{:,}'.format(p.price) }}원</div>
+      <div class="region">{{ p.seller_name|e }}</div>
+      {% if p.status == 'sold' %}<span class="badge-sold">판매완료</span>{% endif %}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center text-muted mt-3">찜한 상품이 없습니다.</div>
+{% endif %}
+{% endblock %}

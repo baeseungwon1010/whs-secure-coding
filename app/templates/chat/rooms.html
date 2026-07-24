@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}채팅 목록{% endblock %}
+{% block content %}
+<h2 class="mb-2">💬 내 채팅</h2>
+{% if rooms %}
+<div style="display:flex;flex-direction:column;gap:1rem;">
+  {% for r in rooms %}
+  <a href="{{ url_for('chat.room', room_id=r.id) }}" class="card" style="text-decoration:none;color:inherit;">
+    <div class="flex items-center justify-between">
+      <div>
+        <strong>{{ r.product_title|e }}</strong>
+        <span class="text-muted" style="font-size:0.82rem;">
+          · 구매자: {{ r.buyer_name|e }} / 판매자: {{ r.seller_name|e }}
+        </span>
+      </div>
+      <span class="text-muted" style="font-size:0.8rem;">{{ r.last_activity }}</span>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center text-muted mt-3">진행 중인 채팅이 없습니다.</div>
+{% endif %}
+{% endblock %}

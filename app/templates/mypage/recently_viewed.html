@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block title %}최근 본 상품{% endblock %}
+{% block content %}
+<h2 class="mb-2">👁 최근 본 상품</h2>
+{% if products %}
+<div class="product-grid">
+  {% for p in products %}
+  <a href="{{ url_for('products.detail', product_id=p.id) }}"
+     class="product-card"
+     {% if p.status == 'sold' %}onclick="return confirmSold(event)"{% endif %}>
+    <div style="position:relative;">
+      {% if p.image %}
+        <img src="{{ url_for('static', filename=p.image) }}" alt="{{ p.title|e }}" loading="lazy">
+      {% else %}
+        <div class="no-image">📦</div>
+      {% endif %}
+      {% if p.status == 'sold' %}
+        <div class="sold-overlay-grid">판매완료</div>
+      {% endif %}
+    </div>
+    <div class="info">
+      <div class="title">{{ p.title|e }}</div>
+      <div class="price">{{ '{:,}'.format(p.price) }}원</div>
+      {% if p.status == 'sold' %}<span class="badge-sold">판매완료</span>{% endif %}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center text-muted mt-3">최근 본 상품이 없습니다.</div>
+{% endif %}
+{% endblock %}
+{% block extra_scripts %}
+<script>
+function confirmSold(e) {
+  alert('판매 완료된 상품입니다.');
+  e.preventDefault();
+  return false;
+}
+</script>
+{% endblock %}

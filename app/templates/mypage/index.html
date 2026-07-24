@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}마이페이지{% endblock %}
+{% block content %}
+<div style="display:grid;grid-template-columns:200px 1fr;gap:2rem;">
+  <aside>
+    <div class="card text-center">
+      {% if user.profile_image %}
+        <img src="{{ url_for('static', filename=user.profile_image) }}" class="avatar avatar-lg" style="margin:0 auto 0.5rem;">
+      {% else %}
+        <div style="width:80px;height:80px;border-radius:50%;background:var(--sky-ultra);display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 0.5rem;">👤</div>
+      {% endif %}
+      <div><strong>{{ user.nickname|e }}</strong></div>
+      <div class="text-muted" style="font-size:0.82rem;">@{{ user.username|e }}</div>
+      <div class="mt-1" style="font-size:0.85rem;">💰 {{ '{:,}'.format(user.balance) }}원</div>
+      {% if user.bio %}<div class="text-muted mt-1" style="font-size:0.82rem;">{{ user.bio|e }}</div>{% endif %}
+    </div>
+    <div class="card mt-2" style="padding:0.75rem;">
+      <nav style="display:flex;flex-direction:column;gap:4px;">
+        <a href="{{ url_for('mypage.profile') }}" class="btn btn-outline btn-sm">프로필 수정</a>
+        <a href="{{ url_for('mypage.change_password') }}" class="btn btn-outline btn-sm">비밀번호 변경</a>
+        <a href="{{ url_for('mypage.products') }}" class="btn btn-outline btn-sm">내 상품</a>
+        <a href="{{ url_for('mypage.wishlist') }}" class="btn btn-outline btn-sm">찜 목록</a>
+        <a href="{{ url_for('mypage.purchase_history') }}" class="btn btn-outline btn-sm">구매 내역</a>
+        <a href="{{ url_for('mypage.sale_history') }}" class="btn btn-outline btn-sm">판매 내역</a>
+        <a href="{{ url_for('mypage.recently_viewed') }}" class="btn btn-outline btn-sm">최근 본 상품</a>
+        <a href="{{ url_for('payment.charge') }}" class="btn btn-primary btn-sm">잔액 충전</a>
+        <a href="{{ url_for('reports.my_reports') }}" class="btn btn-outline btn-sm">내 신고</a>
+        <a href="{{ url_for('notifications.settings') }}" class="btn btn-outline btn-sm">알림 설정</a>
+      </nav>
+    </div>
+  </aside>
+  <main>
+    <h2 class="mb-2">안녕하세요, {{ user.nickname|e }}님!</h2>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;">
+      <div class="stat-card">
+        <div class="num">{{ '{:,}'.format(user.balance) }}</div>
+        <div class="label">잔액(원)</div>
+      </div>
+      <div class="stat-card">
+        <a href="{{ url_for('mypage.products') }}" style="text-decoration:none;color:inherit;">
+          <div class="num">내 상품</div>
+          <div class="label">등록/판매 내역</div>
+        </a>
+      </div>
+      <div class="stat-card">
+        <a href="{{ url_for('mypage.wishlist') }}" style="text-decoration:none;color:inherit;">
+          <div class="num">❤️ 찜</div>
+          <div class="label">찜 목록 보기</div>
+        </a>
+      </div>
+    </div>
+  </main>
+</div>
+{% endblock %}

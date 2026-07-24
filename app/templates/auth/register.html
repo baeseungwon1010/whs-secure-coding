@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block title %}회원가입 — 하늘마켓{% endblock %}
+{% block content %}
+<div class="form-card card">
+  <h2 class="text-center mb-2">✨ 회원가입</h2>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-group">
+      <label>아이디 (4~20자)</label>
+      <div class="flex gap-1">
+        <input class="form-control" type="text" name="username" id="username" required
+               minlength="4" maxlength="20" autocomplete="username">
+        <button type="button" class="btn btn-outline btn-sm" onclick="checkUsername()">중복확인</button>
+      </div>
+      <div id="usernameMsg" style="font-size:0.8rem;margin-top:4px;"></div>
+    </div>
+    <div class="form-group">
+      <label>비밀번호 (8자 이상, 영문+숫자)</label>
+      <input class="form-control" type="password" name="password" id="pw" required minlength="8">
+    </div>
+    <div class="form-group">
+      <label>비밀번호 확인</label>
+      <input class="form-control" type="password" name="confirm" required minlength="8">
+    </div>
+    <div class="form-group">
+      <label>닉네임</label>
+      <input class="form-control" type="text" name="nickname" required maxlength="20">
+    </div>
+    <div class="form-group">
+      <label>이메일 (아이디/비밀번호 찾기에 사용)</label>
+      <input class="form-control" type="email" name="email" required maxlength="100">
+    </div>
+    <button type="submit" class="btn btn-primary w-full">회원가입</button>
+  </form>
+  <div class="text-center mt-2" style="font-size:0.88rem;">
+    이미 계정이 있으신가요? <a href="{{ url_for('auth.login') }}">로그인</a>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+async function checkUsername() {
+  const val = document.getElementById('username').value.trim();
+  const msg = document.getElementById('usernameMsg');
+  if (!val) { msg.textContent = '아이디를 입력해 주세요.'; return; }
+  const res = await fetch(`{{ url_for('auth.check_username') }}?username=${encodeURIComponent(val)}`);
+  const data = await res.json();
+  if (data.exists) {
+    msg.textContent = '이미 사용 중인 아이디입니다.';
+    msg.style.color = 'var(--danger)';
+  } else {
+    msg.textContent = '사용 가능한 아이디입니다.';
+    msg.style.color = 'var(--success)';
+  }
+}
+</script>
+{% endblock %}

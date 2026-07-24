@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+{% block title %}알림{% endblock %}
+{% block extra_head %}
+<style>
+.notif-card {
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  background: var(--white);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+}
+.notif-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+.notif-card.unread { border-left: 4px solid var(--sky); }
+.notif-card.notice-type { cursor: pointer; }
+
+/* 공지 팝업 오버레이 */
+#noticeOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 9000;
+  align-items: center;
+  justify-content: center;
+}
+#noticeOverlay.active { display: flex; }
+#noticeBox {
+  background: var(--white);
+  border-radius: 18px;
+  padding: 2rem;
+  max-width: 520px;
+  width: 92%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+}
+#noticeBox h3 { margin-bottom: 0.75rem; }
+#noticeBox pre { white-space: pre-wrap; font-family: inherit; line-height: 1.6; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-2">
+  <h2>🔔 알림</h2>
+  <a href="{{ url_for('notifications.settings') }}" class="btn btn-outline btn-sm">설정</a>
+</div>
+
+{% if notifs %}
+<div>
+  {% for n in notifs %}
+  {% if n.type == 'notice' %}
+  {# 공지: 클릭 시 팝업, 삭제 없음 #}
+  <div class="notif-card notice-type {% if not n.is_read %}unread{% endif %}"
+       onclick="showNoticePopup('{{ n.link|e }}', '{{ n.id }}')"
+       title="클릭하면 공지 내용을 볼 수 있습니다">
+    <span style="font-size:1.2rem;">📢</span>
+    <div style="flex:1;min-width:0;">
+      <div style="font-weight:{% if not n.is_read %}600{% else %}400{% endif %};">{{ n.content|e }}</div>
+    </div>
+    <span class="text-muted" style="font-size:0.78rem;white-space:nowrap;">{{ n.created_at }}</span>
+  </div>
+  {% else %}
+  {# 일반 알림: 클릭 시 이동 + 삭제 #}
+  <div class="notif-card {% if not n.is_read %}unread{% endif %}"
+       onclick="openAndDelete({{ n.id }}, '{{ n.link or '' }}')"
+       title="클릭하면 확인 후 사라집니다">
+    <span style="font-size:1.2rem;">
+      {% if n.type == 'chat' %}💬
+      {% elif n.type == 'sale' %}💳
+      {% elif n.type == 'wish' %}❤️
+      {% elif n.type == 'report' %}🚨
+      {% elif n.type == 'admin' %}⚙️
+      {% else %}🔔{% endif %}
+    </span>
+    <div style="flex:1;min-width:0;">
+      <div style="font-weight:{% if not n.is_read %}600{% else %}400{% endif %};">{{ n.content|e }}</div>
+    </div>
+    <span class="text-muted" style="font-size:0.78rem;white-space:nowrap;">{{ n.created_at }}</span>
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center text-muted mt-3">알림이 없습니다.</div>
+{% endif %}
+
+{# ── 공지 팝업 모달 ── #}
+<div id="noticeOverlay" onclick="closeNotice(event)">
+  <div id="noticeBox">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+      <span style="font-size:1rem;font-weight:700;color:var(--sky-dark);">📢 공지사항</span>
+      <button onclick="document.getElementById('noticeOverlay').classList.remove('active')"
+              class="btn btn-outline btn-sm">닫기</button>
+    </div>
+    <h3 id="noticeTitle" style="margin-bottom:0.75rem;"></h3>
+    <div class="text-muted" id="noticeDate" style="font-size:0.8rem;margin-bottom:1rem;"></div>
+    <pre id="noticeContent" style="white-space:pre-wrap;font-family:inherit;line-height:1.7;"></pre>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const CSRF = '{{ csrf_token() }}';
+
+async function showNoticePopup(link, notifId) {
+  if (!link) return;
+  try {
+    const res = await fetch(link);
+    if (!res.ok) return;
+    const d = await res.json();
+    document.getElementById('noticeTitle').textContent = d.title;
+    document.getElementById('noticeContent').textContent = d.content;
+    document.getElementById('noticeDate').textContent = d.created_at;
+    document.getElementById('noticeOverlay').classList.add('active');
+    // 읽음 처리 (팝업 열었을 때)
+    await fetch(`/notifications/read/${notifId}`, {
+      method: 'POST', headers: {'X-CSRFToken': CSRF}
+    });
+  } catch(e) {}
+}
+
+function closeNotice(e) {
+  if (e.target === document.getElementById('noticeOverlay')) {
+    document.getElementById('noticeOverlay').classList.remove('active');
+  }
+}
+
+async function openAndDelete(notifId, link) {
+  // 먼저 삭제 요청
+  await fetch(`/notifications/delete/${notifId}`, {
+    method: 'POST', headers: {'X-CSRFToken': CSRF}
+  });
+  // 링크가 있으면 이동, 없으면 페이지 새로고침
+  if (link) {
+    location.href = link;
+  } else {
+    location.reload();
+  }
+}
+</script>
+{% endblock %}

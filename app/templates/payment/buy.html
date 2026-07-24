@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block title %}구매 확인{% endblock %}
+{% block content %}
+<div class="form-card card">
+  <h2 class="mb-2">💳 구매 확인</h2>
+  <div class="card mb-2" style="background:var(--sky-light);">
+    <div><strong>상품명:</strong> {{ product.title|e }}</div>
+    <div><strong>판매자:</strong> {{ product.seller_name|e }}</div>
+    <div><strong>단가:</strong> {{ '{:,}'.format(product.price) }}원</div>
+    <div><strong>남은 수량:</strong> {{ stock }}개</div>
+  </div>
+  <div class="mb-2">
+    <div>내 잔액: <strong>{{ '{:,}'.format(buyer.balance) }}원</strong></div>
+  </div>
+  <form method="post" id="buyForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-group">
+      <label for="qtyInput">구매 수량</label>
+      <div class="flex items-center gap-1">
+        <button type="button" class="btn btn-outline btn-sm" onclick="changeQty(-1)">−</button>
+        <input id="qtyInput" type="number" name="quantity" value="1" min="1" max="{{ stock }}"
+               class="form-control" style="width:80px;text-align:center;"
+               oninput="updateTotal()">
+        <button type="button" class="btn btn-outline btn-sm" onclick="changeQty(1)">+</button>
+        <span class="text-muted" style="font-size:0.85rem;">/ {{ stock }}개</span>
+      </div>
+    </div>
+    <div class="card mb-2" style="background:#fff8e1;border:2px solid var(--warning);">
+      <div style="font-size:1.1rem;font-weight:700;">
+        결제 금액: <span id="totalPrice">{{ '{:,}'.format(product.price) }}</span>원
+      </div>
+        <div id="balanceWarning" class="text-muted" style="font-size:0.85rem;margin-top:4px;"></div>
+    </div>
+    <div class="flex gap-1 flex-wrap">
+      <button type="submit" class="btn btn-success" id="buyBtn">구매 확정</button>
+      <a href="{{ url_for('payment.charge') }}" class="btn btn-outline" id="chargeLink" style="display:none;">💰 잔액 충전</a>
+      <a href="{{ url_for('products.detail', product_id=product.id) }}" class="btn btn-outline">취소</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+const UNIT_PRICE = {{ product.price }};
+const STOCK = {{ stock }};
+const BALANCE = {{ buyer.balance }};
+
+function changeQty(delta) {
+  const input = document.getElementById('qtyInput');
+  let v = parseInt(input.value) + delta;
+  v = Math.max(1, Math.min(v, STOCK));
+  input.value = v;
+  updateTotal();
+}
+
+function updateTotal() {
+  const input = document.getElementById('qtyInput');
+  let qty = parseInt(input.value) || 1;
+  qty = Math.max(1, Math.min(qty, STOCK));
+  input.value = qty;
+  const total = UNIT_PRICE * qty;
+  document.getElementById('totalPrice').textContent = total.toLocaleString();
+  const warn = document.getElementById('balanceWarning');
+  const btn = document.getElementById('buyBtn');
+  var chargeLink = document.getElementById('chargeLink');
+  if (BALANCE < total) {
+    warn.innerHTML = `잔액 부족 — 현재: ${BALANCE.toLocaleString()}원, 필요: ${(total - BALANCE).toLocaleString()}원 더 필요`;
+    warn.style.color = 'var(--danger)';
+    btn.disabled = true;
+    if (chargeLink) chargeLink.style.display = '';
+  } else {
+    warn.textContent = `결제 후 잔액: ${(BALANCE - total).toLocaleString()}원`;
+    warn.style.color = 'var(--success)';
+    btn.disabled = false;
+    if (chargeLink) chargeLink.style.display = 'none';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', updateTotal);
+</script>
+{% endblock %}

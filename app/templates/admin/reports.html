@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block title %}신고 관리{% endblock %}
+{% block extra_head %}
+<style>
+.status-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.status-pending   { background:#fee2e2; color:#dc2626; }
+.status-processing{ background:#ffedd5; color:#ea580c; }
+.status-resolved  { background:#dcfce7; color:#16a34a; }
+.status-dismissed { background:#dbeafe; color:#2563eb; }
+.report-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  background: var(--white);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 0.15s;
+  margin-bottom: 0.5rem;
+}
+.report-row:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+</style>
+{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-2">
+  <h2>🚨 신고 관리 ({{ total }}건)</h2>
+  <div class="flex gap-1 flex-wrap">
+    <a href="?status=" class="sort-btn {% if not status %}active{% endif %}">전체</a>
+    <a href="?status=pending" class="sort-btn {% if status=='pending' %}active{% endif %}">미처리</a>
+    <a href="?status=processing" class="sort-btn {% if status=='processing' %}active{% endif %}">처리중</a>
+    <a href="?status=resolved" class="sort-btn {% if status=='resolved' %}active{% endif %}">완료</a>
+    <a href="?status=dismissed" class="sort-btn {% if status=='dismissed' %}active{% endif %}">기각</a>
+    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline btn-sm">← 대시보드</a>
+  </div>
+</div>
+
+{% for r in reports %}
+<a href="{{ url_for('admin.report_detail', report_id=r.id) }}" class="report-row">
+  {# 처리 상태 배지 — 왼쪽 최상단 #}
+  {% set sc = {'pending':'status-pending','processing':'status-processing','resolved':'status-resolved','dismissed':'status-dismissed'} %}
+  {% set sl = {'pending':'미처리','processing':'처리중','resolved':'완료','dismissed':'기각'} %}
+  <span class="status-badge {{ sc.get(r.status, 'status-pending') }}">{{ sl.get(r.status, r.status) }}</span>
+  <div style="flex:1;min-width:0;">
+    <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.title|e }}</div>
+    <div class="text-muted" style="font-size:0.8rem;">{{ r.category|e }} · {{ r.target_type }} #{{ r.target_id }} · {{ r.reporter_name|e }}</div>
+  </div>
+  <span class="text-muted" style="font-size:0.78rem;white-space:nowrap;">{{ r.created_at }}</span>
+</a>
+{% else %}
+<div class="text-center text-muted mt-3">신고가 없습니다.</div>
+{% endfor %}
+
+{% if pages > 1 %}
+<div class="pagination mt-2">
+  {% for i in range(1, pages+1) %}
+    <a href="?status={{ status or '' }}&page={{ i }}" class="page-link {% if i==page %}active{% endif %}">{{ i }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

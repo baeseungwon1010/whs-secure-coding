@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}알림 설정{% endblock %}
+{% block content %}
+<div class="form-card card">
+  <h2 class="mb-2">🔔 알림 설정</h2>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-group flex items-center gap-1">
+      <input type="checkbox" name="notify_chat" id="nc" {% if current_user.notify_chat %}checked{% endif %}>
+      <label for="nc" style="font-weight:400;">채팅 알림</label>
+    </div>
+    <div class="form-group flex items-center gap-1">
+      <input type="checkbox" name="notify_sale" id="ns" {% if current_user.notify_sale %}checked{% endif %}>
+      <label for="ns" style="font-weight:400;">판매 알림</label>
+    </div>
+    <div class="form-group flex items-center gap-1">
+      <input type="checkbox" name="notify_wish" id="nw" {% if current_user.notify_wish %}checked{% endif %}>
+      <label for="nw" style="font-weight:400;">찜 알림</label>
+    </div>
+
+    <hr style="border:none;border-top:2px solid var(--sky-ultra);margin:1.25rem 0;">
+    <div class="form-group">
+      <label>🌙 야간 알림 차단 시간 (이 시간 동안 알림이 전송되지 않습니다)</label>
+      <div class="flex items-center gap-1 mt-1" style="flex-wrap:wrap;">
+        <input class="form-control" type="time" name="quiet_start"
+               value="{{ current_user.notify_quiet_start }}"
+               style="width:130px;" min="00:00" max="23:59">
+        <span style="font-weight:600;">~</span>
+        <input class="form-control" type="time" name="quiet_end"
+               value="{{ current_user.notify_quiet_end }}"
+               style="width:130px;" min="00:00" max="23:59">
+        <small class="text-muted">(기본값: 22:00 ~ 07:00)</small>
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">저장</button>
+  </form>
+</div>
+{% endblock %}

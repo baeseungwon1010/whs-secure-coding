@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}로그 관리{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-2">
+  <h2>📋 로그</h2>
+  <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline btn-sm">← 대시보드</a>
+</div>
+<div class="section-title">인증 로그 (최근 100건)</div>
+<table class="mb-3">
+  <thead><tr><th>이벤트</th><th>사용자</th><th>IP</th><th>시간</th></tr></thead>
+  <tbody>
+    {% for l in auth_logs %}
+    <tr>
+      <td>{{ l.event }}</td>
+      <td>{{ l.username or '-' }}</td>
+      <td>{{ l.ip or '-' }}</td>
+      <td>{{ l.created_at }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<div class="section-title">상품 로그 (최근 100건)</div>
+<table>
+  <thead><tr><th>이벤트</th><th>상품 ID</th><th>사용자 ID</th><th>상세</th><th>시간</th></tr></thead>
+  <tbody>
+    {% for l in product_logs %}
+    <tr>
+      <td>{{ l.event }}</td>
+      <td>{{ l.product_id or '-' }}</td>
+      <td>{{ l.user_id or '-' }}</td>
+      <td>{{ l.detail or '-' }}</td>
+      <td>{{ l.created_at }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

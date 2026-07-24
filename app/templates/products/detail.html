@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+{% block title %}{{ product.title|e }} — 하늘마켓{% endblock %}
+{% block extra_head %}
+{% if config.KAKAO_MAP_KEY and product.latitude %}
+<script type="text/javascript"
+  src="https://dapi.kakao.com/v2/maps/sdk.js?appkey={{ config.KAKAO_MAP_KEY }}&libraries=services&autoload=false">
+</script>
+{% endif %}
+{% endblock %}
+{% block content %}
+
+{% if product.status == 'sold' %}
+<div class="alert alert-warning" style="margin-bottom:1rem;">
+  이 상품은 <strong>판매 완료</strong>된 상품입니다.
+  {% if current_user.is_authenticated and current_user.id == product.seller_id %}
+    <a href="{{ url_for('products.edit', product_id=product.id) }}" class="btn btn-outline btn-sm" style="margin-left:1rem;">재판매 (수량 늘리기)</a>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="detail-layout">
+  <!-- Image area — object-fit:contain to show full image, padding for breathing room -->
+  <div class="detail-image">
+    {% if product.image %}
+      <div class="product-image-frame">
+        <img src="{{ url_for('static', filename=product.image) }}" alt="{{ product.title|e }}">
+        {% if product.status == 'sold' %}
+          <div class="sold-overlay">판매완료</div>
+        {% endif %}
+      </div>
+    {% else %}
+      <div class="no-image-lg">📦</div>
+    {% endif %}
+  </div>
+
+  <div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:0.5rem;">
+      <span style="background:var(--sky-ultra);padding:3px 10px;border-radius:999px;font-size:0.8rem;">{{ product.category }}</span>
+      {% if product.status == 'sold' %}<span class="badge-sold">판매완료</span>{% endif %}
+      {% if product.status == 'pending' %}<span class="badge-pending">검토중</span>{% endif %}
+    </div>
+    <div class="detail-title">{{ product.title|e }}</div>
+    <div class="detail-price">{{ '{:,}'.format(product.price) }}원</div>
+    <div class="detail-meta">
+      👤 {{ product.seller_name|e }}
+      {% if product.region %} · 📍 {{ product.region|e }}{% endif %}
+      · 👁 {{ product.views }}회
+      · 재고 {{ product.stock }}개
+      · 🕐 {{ product.updated_at }}
+    </div>
+    <div class="detail-desc">{{ product.description|e }}</div>
+
+    <div class="flex gap-1 flex-wrap">
+      {% if current_user.is_authenticated %}
+        {% if current_user.id != product.seller_id %}
+          {% if product.status == 'active' %}
+            <a href="{{ url_for('chat.start', product_id=product.id) }}" class="btn btn-primary">💬 채팅하기</a>
+            <a href="{{ url_for('payment.buy', token=sign_id(product.id, 'buy')) }}" class="btn btn-success">💳 구매하기</a>
+          {% elif product.status == 'sold' %}
+            <button class="btn btn-outline" disabled>판매완료</button>
+          {% endif %}
+          <button class="wish-btn" id="wishBtn" onclick="toggleWish()" title="{{ '찜 취소' if is_wished else '찜하기' }}">
+            {{ '❤️' if is_wished else '🤍' }}
+          </button>
+          <a href="{{ url_for('reports.create', type='user', id=product.seller_id) }}" class="btn btn-outline btn-sm">🚨 신고</a>
+        {% else %}
+          <a href="{{ url_for('products.edit', product_id=product.id) }}" class="btn btn-outline">✏️ 수정</a>
+          <form method="post" action="{{ url_for('products.delete', product_id=product.id) }}" class="delete-confirm" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-danger">🗑 삭제</button>
+          </form>
+        {% endif %}
+      {% else %}
+        {# Non-login: show UI but block on click #}
+        <button class="btn btn-primary" data-login-required data-login-msg="채팅을 하려면 로그인이 필요합니다.">💬 채팅하기</button>
+        <button class="btn btn-success" data-login-required data-login-msg="구매를 하려면 로그인이 필요합니다.">💳 구매하기</button>
+        <button class="wish-btn" data-login-required data-login-msg="찜하려면 로그인이 필요합니다." title="찜하기">🤍</button>
+      {% endif %}
+    </div>
+
+    <!-- Location map -->
+    {% if config.KAKAO_MAP_KEY and product.latitude %}
+    <div style="position:relative;width:100%;height:180px;border-radius:12px;border:2px solid var(--sky-ultra);margin-top:1rem;">
+      <div id="detailMap" style="width:100%;height:100%;border-radius:10px;"></div>
+    </div>
+    {% elif product.region %}
+    <div class="mt-2 text-muted" style="font-size:0.85rem;">📍 {{ product.region|e }}</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Comments -->
+<div id="comments" class="mt-3">
+  <div class="section-title">💬 댓글 {{ comments|length }}개</div>
+
+  {% if current_user.is_authenticated %}
+  <form id="commentForm" class="flex gap-1 mb-2">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="parent_id" id="commentParentId" value="">
+    <input type="text" class="form-control" id="commentContent" name="content"
+           placeholder="댓글 입력..." maxlength="500" required>
+    <button type="button" class="btn btn-primary btn-sm" onclick="submitComment()">등록</button>
+  </form>
+  {% else %}
+  <div class="mb-2">
+    <button class="btn btn-outline btn-sm" data-login-required data-login-msg="댓글을 작성하려면 로그인이 필요합니다.">댓글 작성</button>
+  </div>
+  {% endif %}
+
+  {% for c in comments %}
+    {% if c.parent_id is none %}
+    <div class="comment" id="comment-{{ c.id }}">
+      <div class="comment-meta">{{ c.nickname|e }} · {{ c.created_at }}</div>
+      {% if c.is_deleted %}
+        <span class="comment-deleted">{% if c.deleted_by_admin %}관리자에 의해 삭제된 댓글입니다.{% else %}삭제된 댓글입니다.{% endif %}</span>
+      {% else %}
+        <div>{{ c.content|e }}</div>
+        <div class="flex gap-1 mt-1">
+          {% if current_user.is_authenticated %}
+            <button class="btn btn-outline btn-sm" onclick="setReplyTarget({{ c.id }})">↩ 대댓글</button>
+            {# 삭제: 댓글 작성자 or 관리자만 (판매자는 불가) #}
+            {% if current_user.id == c.user_id or current_user.is_admin %}
+            <form method="post" action="{{ url_for('products.delete_comment', comment_id=c.id) }}" style="display:inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-outline btn-sm">삭제</button>
+            </form>
+            {% else %}
+            <a href="{{ url_for('reports.create', type='user', id=c.user_id) }}" class="btn btn-outline btn-sm">🚨 신고</a>
+            {% endif %}
+          {% endif %}
+        </div>
+      {% endif %}
+
+      <!-- Replies -->
+      {% for r in comments if r.parent_id == c.id %}
+      <div class="comment reply" id="comment-{{ r.id }}">
+        <div class="comment-meta">↩ {{ r.nickname|e }} · {{ r.created_at }}</div>
+        {% if r.is_deleted %}
+          <span class="comment-deleted">{% if r.deleted_by_admin %}관리자에 의해 삭제된 댓글입니다.{% else %}삭제된 댓글입니다.{% endif %}</span>
+        {% else %}
+          <div>{{ r.content|e }}</div>
+          <div class="flex gap-1 mt-1">
+            {% if current_user.is_authenticated %}
+              {% if current_user.id == r.user_id or current_user.is_admin %}
+              <form method="post" action="{{ url_for('products.delete_comment', comment_id=r.id) }}" style="display:inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-outline btn-sm">삭제</button>
+              </form>
+              {% else %}
+              <a href="{{ url_for('reports.create', type='user', id=r.user_id) }}" class="btn btn-outline btn-sm">🚨 신고</a>
+              {% endif %}
+            {% endif %}
+          </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  {% else %}
+    <p class="text-muted">아직 댓글이 없습니다.</p>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// ── Wish toggle ──
+async function toggleWish() {
+  const res = await fetch('{{ url_for("products.toggle_wish", product_id=product.id) }}', {
+    method: 'POST',
+    headers: {'X-CSRFToken': '{{ csrf_token() }}'}
+  });
+  if (res.status === 401) { requireLogin('찜하려면 로그인이 필요합니다.'); return; }
+  const data = await res.json();
+  document.getElementById('wishBtn').textContent = data.wished ? '❤️' : '🤍';
+}
+
+// ── Comment (AJAX, block on profanity) ──
+function setReplyTarget(parentId) {
+  document.getElementById('commentParentId').value = parentId;
+  document.getElementById('commentContent').placeholder = '대댓글 입력...';
+  document.getElementById('commentContent').focus();
+}
+
+async function submitComment() {
+  const content = document.getElementById('commentContent').value.trim();
+  const parentId = document.getElementById('commentParentId').value;
+  const csrf = document.querySelector('#commentForm [name=csrf_token]').value;
+  if (!content) return;
+
+  const fd = new FormData();
+  fd.append('content', content);
+  fd.append('csrf_token', csrf);
+  if (parentId) fd.append('parent_id', parentId);
+
+  const res = await fetch('{{ url_for("products.add_comment", product_id=product.id) }}', {
+    method: 'POST', body: fd,
+    headers: {'X-Requested-With': 'XMLHttpRequest'}
+  });
+
+  if (res.status === 400) {
+    const data = await res.json();
+    alert(data.reason || '댓글을 등록할 수 없습니다.');
+    return;
+  }
+  if (res.ok) {
+    // Reload to show new comment
+    location.href = location.pathname + '#comments';
+    location.reload();
+  }
+}
+
+// ── Kakao mini-map on detail ──
+{% if config.KAKAO_MAP_KEY and product.latitude %}
+kakao.maps.load(function() {
+  const pos = new kakao.maps.LatLng({{ product.latitude }}, {{ product.longitude }});
+  const map = new kakao.maps.Map(document.getElementById('detailMap'), {
+    center: pos, level: 4
+  });
+  new kakao.maps.Marker({ position: pos, map: map });
+});
+{% endif %}
+</script>
+{% endblock %}

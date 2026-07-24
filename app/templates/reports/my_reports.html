@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}내 신고 내역{% endblock %}
+{% block content %}
+<h2 class="mb-2">🚨 내 신고 내역</h2>
+{% if reports %}
+<table>
+  <thead>
+    <tr><th>제목</th><th>카테고리</th><th>대상</th><th>상태</th><th>접수일</th></tr>
+  </thead>
+  <tbody>
+    {% for r in reports %}
+    <tr>
+      <td>{{ r.title|e }}</td>
+      <td>{{ r.category|e }}</td>
+      <td>{{ r.target_type }} #{{ r.target_id }}</td>
+      <td>
+        {% if r.status == 'pending' %}<span style="color:var(--warning);">검토중</span>
+        {% elif r.status == 'resolved' %}<span style="color:var(--success);">처리됨</span>
+        {% elif r.status == 'dismissed' %}<span style="color:var(--text-light);">기각됨</span>
+        {% else %}{{ r.status }}{% endif %}
+      </td>
+      <td>{{ r.created_at }}</td>
+    </tr>
+    {% if r.admin_response %}
+    <tr><td colspan="5" style="background:var(--sky-light);font-size:0.85rem;">
+      📋 관리자 답변: {{ r.admin_response|e }}
+    </td></tr>
+    {% endif %}
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="text-center text-muted mt-3">신고 내역이 없습니다.</div>
+{% endif %}
+{% endblock %}

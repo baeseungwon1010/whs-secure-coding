@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}잔액 충전 / 출금{% endblock %}
+{% block content %}
+<div class="form-card card" style="max-width:480px;">
+  <h2 class="mb-1">💰 잔액 관리</h2>
+  <p class="text-muted mb-3">현재 잔액: <strong style="font-size:1.1rem;color:var(--sky-dark);">{{ '{:,}'.format(user.balance) }}원</strong></p>
+
+  <div style="border-bottom:1px solid var(--sky-ultra);padding-bottom:1rem;margin-bottom:1rem;">
+    <div style="font-weight:600;margin-bottom:0.75rem;">💳 가상 잔액 충전 (즉시)</div>
+    <form method="post" action="{{ url_for('payment.virtual_charge') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="flex gap-2 mb-2 flex-wrap">
+        {% for amt in [10000, 30000, 50000, 100000] %}
+        <button type="button" class="btn btn-outline btn-sm"
+                onclick="document.getElementById('chargeAmt').value='{{ amt }}'">
+          +{{ '{:,}'.format(amt) }}원
+        </button>
+        {% endfor %}
+      </div>
+      <div class="flex gap-2">
+        <input id="chargeAmt" class="form-control" type="number" name="amount"
+               min="100" max="5000000" step="100" placeholder="충전할 금액 입력" required style="flex:1;">
+        <button type="submit" class="btn btn-primary">충전하기</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="flex gap-2 flex-wrap mb-3">
+    <a href="{{ url_for('payment.toss_charge') }}" class="btn btn-primary" style="flex:1;min-width:140px;text-align:center;">
+      💳 토스페이먼츠 충전
+    </a>
+    <a href="{{ url_for('payment.withdraw') }}" class="btn btn-outline" style="flex:1;min-width:140px;text-align:center;">
+      🏦 계좌 출금
+    </a>
+  </div>
+
+  <div class="card" style="background:var(--sky-ultra);border:none;padding:1rem;">
+    <div style="font-weight:600;margin-bottom:0.5rem;">안내사항</div>
+    <ul style="margin:0;padding-left:1.2rem;font-size:0.85rem;color:var(--text-muted);line-height:1.7;">
+      <li>가상 잔액 충전은 모의 거래용입니다 (즉시 반영).</li>
+      <li>토스페이먼츠는 실제 카드/계좌 결제를 지원합니다.</li>
+      <li>출금은 본인 명의 계좌로만 신청 가능합니다.</li>
+      <li>최소 출금 금액은 1,000원이며, 처리까지 1~2일 소요될 수 있습니다.</li>
+    </ul>
+  </div>
+
+  <div class="mt-2">
+    <a href="{{ url_for('mypage.index') }}" class="btn btn-outline btn-sm">← 마이페이지</a>
+  </div>
+</div>
+{% endblock %}
