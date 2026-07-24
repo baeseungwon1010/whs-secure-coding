@@ -6,7 +6,7 @@
 ---
 
 ## 1. 프로젝트 개요
-- **과제**: 화이트햇 스쿨(WHS) 시큐어코딩 — Tiny Second-hand Shopping Platform(중고거래 플랫폼)
+- **과제**: 시큐어코딩 — Tiny Second-hand Shopping Platform(중고거래 플랫폼)
 - **목표**:
   1. 아래 최소 요구사항(기능 8종 + 비기능 3종)을 모두 충족
   2. **보안 약점을 최대한 제거** (핵심 평가 요소)
